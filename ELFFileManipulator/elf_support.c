@@ -50,10 +50,10 @@ void load_elf_file_sections(Elf_Manager* manager){
 }
 
 void print_elf_header_table_overview(Elf_Manager* manager){
-    Elf_Ehdr hdr = manager->e_hdr;
-    printf("Number of program headers: %d\nNumber of section headers: %d\n",hdr.e_phnum,hdr.e_shnum);
-    printf("Program Header Offset: %#lx, size %#x\n",hdr.e_phoff, hdr.e_phentsize*hdr.e_phnum);
-    printf("Section Header Offset: %#lx, size %#x\n",hdr.e_shoff, hdr.e_shentsize*hdr.e_shnum);
+    Elf_Ehdr ehdr = manager->e_hdr;
+    printf("Number of program headers: %d\nNumber of section headers: %d\n",ehdr.e_phnum,ehdr.e_shnum);
+    printf("Program Header Offset: %#lx, size %#x\n",ehdr.e_phoff, ehdr.e_phentsize*ehdr.e_phnum);
+    printf("Section Header Offset: %#lx, size %#x\n",ehdr.e_shoff, ehdr.e_shentsize*ehdr.e_shnum);
 }
 
 //Currently takes an ELF file and parses it into a struct of elf headers and tables
@@ -65,29 +65,29 @@ Elf_Manager* load_elf_file(char* file_path){
         exit(1);
     }
 
-    Elf_Ehdr hdr;
-    if (1 != fread(&hdr, sizeof(hdr), 1, fp)){
+    Elf_Ehdr ehdr;
+    if (1 != fread(&ehdr, sizeof(ehdr), 1, fp)){
         printf("failed to read elf header\n");
         exit(1);
     }
 
-    Elf_Manager* manager = initialize_manager(hdr.e_phnum,hdr.e_shnum);
+    Elf_Manager* manager = initialize_manager(ehdr.e_phnum,ehdr.e_shnum);
     strncpy(manager->file_path,file_path,4095);
     manager->file_path[4095] = '\0';
-    memcpy(&(manager->e_hdr), &hdr, sizeof(Elf_Ehdr));
+    memcpy(&(manager->e_hdr), &ehdr, sizeof(Elf_Ehdr));
 
-    fseek(fp,hdr.e_phoff ,SEEK_SET);
+    fseek(fp,ehdr.e_phoff ,SEEK_SET);
     
-    for(int i = 0; i < hdr.e_phnum; i++){
+    for(int i = 0; i < ehdr.e_phnum; i++){
         if(1 != fread(&(manager->p_hdr[i]), sizeof(Elf_Phdr), 1, fp)){
             printf("failed to read program header\n");
             exit(1);
         }
     }
 
-    fseek(fp,hdr.e_shoff ,SEEK_SET);
+    fseek(fp,ehdr.e_shoff ,SEEK_SET);
 
-    for(int i = 0; i < hdr.e_shnum; i++){
+    for(int i = 0; i < ehdr.e_shnum; i++){
         if(1 != fread(&(manager->s_hdr[i]), sizeof(Elf_Shdr), 1, fp)){
             printf("failed to read section header\n");
             exit(1);
@@ -418,6 +418,32 @@ int find_debug(Elf_Manager* manager) {
     return -1;
 }
 
+int find_strtab(Elf_Manager* manager) {
+    uint8_t* string_table_file_section = manager->file_sections[manager->e_hdr.e_shstrndx];
+    for (int i = 0; i < manager->e_hdr.e_shnum; i++) {
+        Elf_Shdr section = manager->s_hdr[i];
+        char* found = string_table_file_section + section.sh_name;
+        if (strcmp(".shstrtab", found) == 0) {
+            // printf(".comment: %lx\n", section.sh_offset);
+            return i;
+        }
+    }
+    return -1;
+}
+
+int find_bss(Elf_Manager* manager) {
+    uint8_t* string_table_file_section = manager->file_sections[manager->e_hdr.e_shstrndx];
+    for (int i = 0; i < manager->e_hdr.e_shnum; i++) {
+        Elf_Shdr section = manager->s_hdr[i];
+        char* found = string_table_file_section + section.sh_name;
+        if (strcmp(".bss", found) == 0) {
+            // printf(".comment: %lx\n", section.sh_offset);
+            return i;
+        }
+    }
+    return -1;
+}
+
 int return_dynamic_size(Elf_Manager* manager) {
     int cutoff;
     int file_size;
@@ -671,6 +697,47 @@ void change_note_comment_debug(Elf_Manager* malware, Elf_Manager* benign, int te
     free_manager(malware);
 }
 
+void change_strtab_section(Elf_Manager* malware) {
+    int strtab_section_index = find_strtab(malware);
+    if (strtab_section_index != -1) {
+        memset(malware->file_sections[strtab_section_index], 0xFF, malware->s_hdr[strtab_section_index].sh_size);
+    }
+    else {
+        puts(".strtab not present");
+    }
+}
+
+void extend_sections(Elf_Manager* manager, int ADDENDUM) {
+    for (int i = 0; i < manager->e_hdr.e_shnum; i++) {
+        // Allocate new section header with ADDENDUM extra bytes
+        Elf_Shdr* new_shdr = (Elf_Shdr*)malloc(sizeof(Elf_Shdr) + ADDENDUM);
+        if (!new_shdr) {
+            perror("Failed to allocate memory for new section header");
+            return;
+        }
+        
+        // Copy original section header to new section header
+        memcpy(new_shdr, &manager->s_hdr[i], sizeof(Elf_Shdr));
+        
+        // Fill the extra bytes with 0xFF
+        memset((uint8_t*)new_shdr + sizeof(Elf_Shdr), 0xFF, ADDENDUM);
+        
+        // Replace old section header with new section header
+        manager->s_hdr[i] = *new_shdr;
+        free(new_shdr);
+    }
+}
+
+void change_bss_section(Elf_Manager* malware) {
+    int bss_section_index = find_strtab(malware);
+    if (bss_section_index != -1) {
+        memset(malware->file_sections[bss_section_index], 0xFF, malware->s_hdr[bss_section_index].sh_size);
+    }
+    else {
+        puts(".bss not present");
+    }
+}
+
 void write_elf_file(Elf_Manager* manager, char* file_path){
     char* folder = "ModifiedElfOutput/"; 
 
@@ -722,3 +789,71 @@ void write_elf_file(Elf_Manager* manager, char* file_path){
 
     fclose(fp);
 }
+
+//IT GETS DICEY HERE
+FILE* open_elf_file(const char* file_path, const char* mode) {
+    FILE* fp = fopen(file_path, mode);
+    if (!fp) {
+        perror("Failed to open file");
+    }
+    return fp;
+}
+
+void write_elf_file_extension(Elf_Manager* manager, const char* file_path, int ADDENDUM) {
+    // Ensure output directory exists
+    char* folder = "ModifiedElfOutput/";
+    struct stat st = {0};
+    if (stat(folder, &st) == -1) {
+        mkdir(folder, S_IRWXU | S_IRWXG | S_IRWXO);
+    }
+
+    // Open the output file
+    FILE* fp = fopen(file_path, "w+b");
+    if (!fp) {
+        perror("Failed to open file for writing");
+        return;
+    }
+    fchmod(fileno(fp), S_IRWXU | S_IRWXG | S_IRWXO);
+
+    // Write ELF headers
+    fwrite(&(manager->e_hdr), sizeof(Elf_Ehdr), 1, fp);
+
+    // Write program headers
+    fseek(fp, manager->e_hdr.e_phoff, SEEK_SET);
+    fwrite(manager->p_hdr, sizeof(Elf_Phdr), manager->e_hdr.e_phnum, fp);
+
+    // Modify and write section headers
+    fseek(fp, manager->e_hdr.e_shoff, SEEK_SET);
+    for (int i = 0; i < manager->e_hdr.e_shnum; i++) {
+        // Write original section header
+        fwrite(&(manager->s_hdr[i]), sizeof(Elf_Shdr), 1, fp);
+
+        // Write additional 0xFF bytes (ADDENDUM)
+        uint8_t additional_bytes[ADDENDUM];
+        memset(additional_bytes, 0xFF, ADDENDUM);
+        fwrite(additional_bytes, 1, ADDENDUM, fp);
+    }
+
+    // Write section contents
+    for (int i = 0; i < manager->e_hdr.e_shnum; i++) {
+        if (manager->s_hdr[i].sh_type == SHT_NOBITS) {
+            continue; // Skip empty sections
+        }
+        fseek(fp, manager->s_hdr[i].sh_offset, SEEK_SET);
+        fwrite(manager->file_sections[i], 1, manager->s_hdr[i].sh_size, fp);
+    }
+
+    fclose(fp);
+}
+
+int get_file_name_size_from_path_new(const char* file_path) {
+    // Implementation to calculate size of file name from path
+    // Example implementation:
+    const char* file_name = strrchr(file_path, '/');
+    if (file_name) {
+        return strlen(file_name + 1); // +1 to exclude the '/'
+    } else {
+        return strlen(file_path); // If no '/' found, return full path size
+    }
+}
+

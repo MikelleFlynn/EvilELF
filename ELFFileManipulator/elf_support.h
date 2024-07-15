@@ -79,6 +79,8 @@ void free_seg_table(Elf_Manager* manager, struct seg_sect* seg_table);
 int* find_note(Elf_Manager* manager);
 int find_comment(Elf_Manager* manager);
 int find_debug(Elf_Manager* manager);
+int find_strtab(Elf_Manager* manager);
+int find_bss(Elf_Manager* manager);
 
 int return_dynamic_size(Elf_Manager* manager);
 int extend_dynamic_segment(Elf_Manager* manager, Elf_Xword ADDENDUM);
@@ -92,6 +94,12 @@ void change_note_section(Elf_Manager* malware, Elf_Manager* benign, int text_sec
 void change_comment_section(Elf_Manager* malware, Elf_Manager* benign, int text_section_index);
 void change_debug_section(Elf_Manager* malware, Elf_Manager* benign, int text_section_index);
 void change_note_comment_debug(Elf_Manager* malware, Elf_Manager* benign, int text_section_index, char* buffer, char* argv);
+void change_strtab_section(Elf_Manager* malware);
+void change_bss_section(Elf_Manager* malware);
+void extend_sections(Elf_Manager* malware, int APPENDUM);
 
 void write_elf_file(Elf_Manager* manager, char* file_path);
+FILE* open_elf_file(const char* file_path, const char* mode);
+void write_elf_file_extension(Elf_Manager* manager, const char* file_path, int ADDENDUM);
+int get_file_name_size_from_path_new(const char* file_path);
 #endif
