@@ -9,11 +9,7 @@ int main(int argc, char** argv){
     Elf_Manager* manager = load_elf_file(argv[1]);
     printf("Loaded file: %s\n",manager->file_path);
 
-    print_elf_header_table_overview(manager);
-
     change_bss_section(manager);
-
-    print_elf_header_table_overview(manager);
 
     write_elf_file(manager, argv[1]);
     free_manager(manager);
