@@ -813,28 +813,21 @@ void write_elf_file(Elf_Manager* manager, char* file_path){
     fclose(fp);
 }
 
-//IT GETS DICEY HERE
-FILE* open_elf_file(const char* file_path, const char* mode) {
-    FILE* fp = fopen(file_path, mode);
-    if (!fp) {
-        perror("Failed to open file");
-    }
-    return fp;
-}
-
 void write_elf_file_extension(Elf_Manager* manager, const char* file_path, int ADDENDUM) {
     // Ensure output directory exists
-    char folder[4096] = "ModifiedElfOutput/";
+    char folder[] = "ModifiedElfOutput/";
     struct stat st = {0};
     if (stat(folder, &st) == -1) {
         mkdir(folder, S_IRWXU | S_IRWXG | S_IRWXO);
     }
 
-    // Construct full output file path
-    char output_path[4096];
-    snprintf(output_path, sizeof(output_path), "%s%s", folder, strrchr(file_path, '/') + 1);
+    // Determine output file name from original file path
+    int size = strlen(file_path);
+    char output_path[strlen(folder) + size + 1];
+    strcpy(output_path, folder);
+    strcat(output_path, file_path);
 
-    // Open the output file
+    // Open the output file for writing
     FILE* fp = fopen(output_path, "w+b");
     if (!fp) {
         perror("Failed to open file for writing");
@@ -849,7 +842,7 @@ void write_elf_file_extension(Elf_Manager* manager, const char* file_path, int A
     fseek(fp, manager->e_hdr.e_phoff, SEEK_SET);
     fwrite(manager->p_hdr, sizeof(Elf_Phdr), manager->e_hdr.e_phnum, fp);
 
-    // Modify and write section headers
+    // Write section headers
     fseek(fp, manager->e_hdr.e_shoff, SEEK_SET);
     for (int i = 0; i < manager->e_hdr.e_shnum; i++) {
         fwrite(&(manager->s_hdr[i]), sizeof(Elf_Shdr), 1, fp);
