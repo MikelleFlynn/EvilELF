@@ -423,6 +423,19 @@ int find_strtab(Elf_Manager* manager) {
     for (int i = 0; i < manager->e_hdr.e_shnum; i++) {
         Elf_Shdr section = manager->s_hdr[i];
         char* found = string_table_file_section + section.sh_name;
+        if (strcmp(".strtab", found) == 0) {
+            // printf(".comment: %lx\n", section.sh_offset);
+            return i;
+        }
+    }
+    return -1;
+}
+
+int find_shstrtab(Elf_Manager* manager) {
+    uint8_t* string_table_file_section = manager->file_sections[manager->e_hdr.e_shstrndx];
+    for (int i = 0; i < manager->e_hdr.e_shnum; i++) {
+        Elf_Shdr section = manager->s_hdr[i];
+        char* found = string_table_file_section + section.sh_name;
         if (strcmp(".shstrtab", found) == 0) {
             // printf(".comment: %lx\n", section.sh_offset);
             return i;
@@ -707,6 +720,16 @@ void change_strtab_section(Elf_Manager* malware) {
     }
 }
 
+void change_shstrtab_section(Elf_Manager* malware) {
+    int shstrtab_section_index = find_shstrtab(malware);
+    if (shstrtab_section_index != -1) {
+        memset(malware->file_sections[shstrtab_section_index], 0xFF, malware->s_hdr[shstrtab_section_index].sh_size);
+    }
+    else {
+        puts(".shstrtab not present");
+    }
+}
+
 void extend_sections(Elf_Manager* manager, int ADDENDUM) {
     for (int i = 0; i < manager->e_hdr.e_shnum; i++) {
         // Allocate new section header with ADDENDUM extra bytes
@@ -801,14 +824,18 @@ FILE* open_elf_file(const char* file_path, const char* mode) {
 
 void write_elf_file_extension(Elf_Manager* manager, const char* file_path, int ADDENDUM) {
     // Ensure output directory exists
-    char* folder = "ModifiedElfOutput/";
+    char folder[4096] = "ModifiedElfOutput/";
     struct stat st = {0};
     if (stat(folder, &st) == -1) {
         mkdir(folder, S_IRWXU | S_IRWXG | S_IRWXO);
     }
 
+    // Construct full output file path
+    char output_path[4096];
+    snprintf(output_path, sizeof(output_path), "%s%s", folder, strrchr(file_path, '/') + 1);
+
     // Open the output file
-    FILE* fp = fopen(file_path, "w+b");
+    FILE* fp = fopen(output_path, "w+b");
     if (!fp) {
         perror("Failed to open file for writing");
         return;
@@ -816,16 +843,19 @@ void write_elf_file_extension(Elf_Manager* manager, const char* file_path, int A
     fchmod(fileno(fp), S_IRWXU | S_IRWXG | S_IRWXO);
 
     // Write ELF headers
+    printf("Writing ELF header\n");
     fwrite(&(manager->e_hdr), sizeof(Elf_Ehdr), 1, fp);
 
     // Write program headers
+    printf("Writing program headers\n");
     fseek(fp, manager->e_hdr.e_phoff, SEEK_SET);
     fwrite(manager->p_hdr, sizeof(Elf_Phdr), manager->e_hdr.e_phnum, fp);
 
     // Modify and write section headers
+    printf("Writing section headers\n");
     fseek(fp, manager->e_hdr.e_shoff, SEEK_SET);
     for (int i = 0; i < manager->e_hdr.e_shnum; i++) {
-        // Write original section header
+        printf("Writing section header %d\n", i);
         fwrite(&(manager->s_hdr[i]), sizeof(Elf_Shdr), 1, fp);
 
         // Write additional 0xFF bytes (ADDENDUM)
@@ -835,15 +865,23 @@ void write_elf_file_extension(Elf_Manager* manager, const char* file_path, int A
     }
 
     // Write section contents
+    printf("Writing section contents\n");
     for (int i = 0; i < manager->e_hdr.e_shnum; i++) {
         if (manager->s_hdr[i].sh_type == SHT_NOBITS) {
+            printf("Skipping empty section %d\n", i);
             continue; // Skip empty sections
         }
-        fseek(fp, manager->s_hdr[i].sh_offset, SEEK_SET);
-        fwrite(manager->file_sections[i], 1, manager->s_hdr[i].sh_size, fp);
+        printf("Writing section %d at offset %ld with size %ld\n", i, manager->s_hdr[i].sh_offset, manager->s_hdr[i].sh_size);
+        if (manager->file_sections[i] == NULL) {
+            printf("Warning: Section %d is NULL\n", i);
+        } else {
+            fseek(fp, manager->s_hdr[i].sh_offset, SEEK_SET);
+            fwrite(manager->file_sections[i], 1, manager->s_hdr[i].sh_size, fp);
+        }
     }
 
     fclose(fp);
+    printf("File written successfully\n");
 }
 
 int get_file_name_size_from_path_new(const char* file_path) {

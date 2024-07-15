@@ -15,6 +15,8 @@ int main(int argc, char** argv){
     const char* output_file_path = "ModifiedElfOutput/output.elf"; // Adjust output path as needed
     Elf_Manager* manager = load_elf_file(argv[1]);
 
+    // Write the modified ELF file with extended section headers filled with 0xFF
+    write_elf_file_extension(manager, output_file_path, ADDENDUM);
     // Modify the section headers
     extend_sections(manager, ADDENDUM);
 

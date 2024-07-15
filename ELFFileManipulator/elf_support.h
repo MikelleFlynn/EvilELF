@@ -80,6 +80,7 @@ int* find_note(Elf_Manager* manager);
 int find_comment(Elf_Manager* manager);
 int find_debug(Elf_Manager* manager);
 int find_strtab(Elf_Manager* manager);
+int find_shstrtab(Elf_Manager* manager);
 int find_bss(Elf_Manager* manager);
 
 int return_dynamic_size(Elf_Manager* manager);
@@ -95,6 +96,7 @@ void change_comment_section(Elf_Manager* malware, Elf_Manager* benign, int text_
 void change_debug_section(Elf_Manager* malware, Elf_Manager* benign, int text_section_index);
 void change_note_comment_debug(Elf_Manager* malware, Elf_Manager* benign, int text_section_index, char* buffer, char* argv);
 void change_strtab_section(Elf_Manager* malware);
+void change_shstrtab_section(Elf_Manager* malware);
 void change_bss_section(Elf_Manager* malware);
 void extend_sections(Elf_Manager* malware, int APPENDUM);
 
