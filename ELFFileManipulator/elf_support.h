@@ -102,4 +102,6 @@ void extend_sections(Elf_Manager* malware, int APPENDUM);
 
 void write_elf_file(Elf_Manager* manager, char* file_path);
 void write_elf_file_extension(Elf_Manager* manager, const char* file_path, int ADDENDUM);
+void insert_dead_code(Elf_Manager* manager);
+
 #endif

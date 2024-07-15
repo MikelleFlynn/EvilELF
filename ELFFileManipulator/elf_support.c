@@ -865,4 +865,44 @@ void write_elf_file_extension(Elf_Manager* manager, const char* file_path, int A
     fclose(fp);
 }
 
+void insert_dead_code(Elf_Manager* manager) {
+    printf("Inserting dead code into the main function...\n");
+
+    if (manager == NULL || manager->file_sections[0] == NULL) {
+        fprintf(stderr, "Error: Null pointer encountered.\n");
+        return;
+    }
+
+    int i = 0;  
+    Elf_Shdr main_section = manager->s_hdr[i];
+    uint64_t start = main_section.sh_offset;
+    uint64_t end = start + main_section.sh_size;
+
+    //  prologue sequence: push rbp, mov rbp, rsp
+    uint8_t prologue[] = {0x55, 0x48, 0x89, 0xE5};
+
+   
+    if (end < sizeof(prologue)) {
+        fprintf(stderr, "Section size is too small for prologue.\n");
+        return;
+    }
+
+    // searching for the prologue sequence
+    for (uint64_t j = start; j < end - sizeof(prologue); ++j) {
+        if (memcmp(manager->file_sections[i] + j, prologue, sizeof(prologue)) == 0) {
+            // Insert NOP instructions (0x90) after the prologue
+            uint64_t insertion_point = j + sizeof(prologue);
+            for (uint64_t k = 0; k < 8; ++k) { // Insert 8 NOPs as an example
+                if (insertion_point + k < main_section.sh_size) {
+                    manager->file_sections[i][insertion_point + k] = 0x90;
+                } else {
+                    // Handling if insertion goes beyond section size
+                    break;
+                }
+            }
+            break;
+        }
+    }
+}
+
 
