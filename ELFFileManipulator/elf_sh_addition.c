@@ -12,6 +12,7 @@ int main(int argc, char** argv){
     const int ADDENDUM = 64;
 
     Elf_Manager* manager = load_elf_file(argv[1]);
+    printf("Loaded file: %s\n",manager->file_path);
 
     // Write the modified ELF file with extended section headers filled with 0xFF
     write_elf_file_extension(manager, argv[1], ADDENDUM);
