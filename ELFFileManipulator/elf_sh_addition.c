@@ -12,7 +12,7 @@ int main(int argc, char** argv){
 
     const char* file_path = "/home/reu24/EvilELF/ELFFileManipulator/example.c";
 
-    const char* output_file_path = "ModifiedElfOutput/output.elf"; // Adjust output path as needed
+    const char* output_file_path = "ModifiedElfOutput/example"; // Adjust output path as needed
     Elf_Manager* manager = load_elf_file(argv[1]);
 
     // Write the modified ELF file with extended section headers filled with 0xFF
