@@ -835,6 +835,8 @@ void write_elf_file_extension(Elf_Manager* manager, const char* file_path, int A
     }
     fchmod(fileno(fp), S_IRWXU | S_IRWXG | S_IRWXO);
 
+    manager->e_hdr.e_shentsize += ADDENDUM;
+
     // Write ELF headers
     fwrite(&(manager->e_hdr), sizeof(Elf_Ehdr), 1, fp);
 
