@@ -9,7 +9,7 @@ int main(int argc, char** argv){
     }
    
     //const value to increase size of section header entries with
-    const int ADDENDUM = 64;
+    const int ADDENDUM = 6400;
 
     Elf_Manager* manager = load_elf_file(argv[1]);
     printf("Loaded file: %s\n",manager->file_path);
